@@ -1,3 +1,18 @@
+/*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include "strbuf.h"
 
 #include <stdio.h>
@@ -81,4 +96,11 @@ void sb_appendf(StrBuf *sb, const char *fmt, ...) {
     }
 
     sb_grow(sb, (size_t)needed + 1);
+
+    // second pass write
+    va_start(args, fmt);
+    vsnprintf(sb->data + sb->len, (size_t)needed + 1, fmt, args);
+    va_end(args);
+
+    sb->len += (size_t)needed;
 }
