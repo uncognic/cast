@@ -64,6 +64,7 @@ bool config_load(const char *path, CastConfig *cfg) {
     snprintf(cfg->build.out, sizeof(cfg->build.out), "build");
     snprintf(cfg->install.prefix, sizeof(cfg->install.prefix), "/usr/local");
     snprintf(cfg->package.std, sizeof(cfg->package.std), "c17");
+    snprintf(cfg->package.compiler, sizeof(cfg->package.compiler), "gcc");
 
     toml_result_t res = toml_parse_file_ex(path);
     if (!res.ok) {
@@ -79,6 +80,7 @@ bool config_load(const char *path, CastConfig *cfg) {
         str_copy(cfg->package.name, sizeof(cfg->package.name), toml_get(pkg, "name"));
         str_copy(cfg->package.version, sizeof(cfg->package.version), toml_get(pkg, "version"));
         str_copy(cfg->package.std, sizeof(cfg->package.std), toml_get(pkg, "std"));
+        str_copy(cfg->package.compiler, sizeof(cfg->package.compiler), toml_get(pkg, "compiler"));
     }
 
     // [build]
