@@ -14,6 +14,7 @@
  */
 
 #include "build.h"
+#include "color.h"
 #include "fs.h"
 #include "strbuf.h"
 
@@ -135,17 +136,18 @@ bool build_run(const CastConfig *cfg, BuildProfile profile) {
     clock_gettime(CLOCK_MONOTONIC, &t0);
     int ret = system(cmd.data);
     clock_gettime(CLOCK_MONOTONIC, &t1);
- 
+
     sb_free(&cmd);
     sb_free(&binpath);
     fl_free(&sources);
 
     if (ret != 0) {
-        fprintf(stderr, "cast: build failed (exit %d)\n", ret);
+        fprintf(stderr, COL_RED COL_BOLD "cast:" COL_RESET " build failed (exit %d)\n", ret);
         return false;
     }
- 
+
     double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
-    printf("cast: built %s/%s in %.2fs\n", cfg->build.out, cfg->package.name, elapsed);
+    printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built %s/%s in %.2fs\n", cfg->build.out,
+           cfg->package.name, elapsed);
     return true;
 }
