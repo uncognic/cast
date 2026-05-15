@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // extract the base directory from a pattern like src/** /*.c
 // take everything before * and strip
@@ -130,8 +131,10 @@ bool build_run(const CastConfig *cfg, BuildProfile profile) {
 
     sb_appendf(&cmd, " -o %s", binpath.data);
 
-    printf("cast: %s\n", cmd.data);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     int ret = system(cmd.data);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
  
     sb_free(&cmd);
     sb_free(&binpath);
@@ -142,6 +145,7 @@ bool build_run(const CastConfig *cfg, BuildProfile profile) {
         return false;
     }
  
-    printf("cast: built %s/%s\n", cfg->build.out, cfg->package.name);
+    double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
+    printf("cast: built %s/%s in %.2fs\n", cfg->build.out, cfg->package.name, elapsed);
     return true;
 }
