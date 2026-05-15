@@ -6,7 +6,7 @@ compiler = "gcc"
 
 [build]
 src = ["src/**/*.c", "extern/**/*.c"]
-include = ["src", "extern"]
+include = ["include", "extern"]
 out = "build"
 
 [profile.debug]
