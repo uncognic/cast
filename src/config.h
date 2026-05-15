@@ -22,6 +22,7 @@ typedef struct {
     char name[128];
     char version[32];
     char std[16];
+    char compiler[64];
 } CastPackage;
 
 typedef struct {
