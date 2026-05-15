@@ -119,6 +119,29 @@ bool build_run(const CastConfig *cfg, BuildProfile profile) {
     }
 
     // profile flags
-    for (size_t i = 0; i < prof->flag_count; i++)
+    for (size_t i = 0; i < prof->flag_count; i++) {
         sb_appendf(&cmd, " %s", prof->flags[i]);
+    }
+
+    // source files
+    for (size_t i = 0; i < sources.count; i++) {
+        sb_appendf(&cmd, " %s", sources.paths[i]);
+    }
+
+    sb_appendf(&cmd, " -o %s", binpath.data);
+
+    printf("cast: %s\n", cmd.data);
+    int ret = system(cmd.data);
+ 
+    sb_free(&cmd);
+    sb_free(&binpath);
+    fl_free(&sources);
+
+    if (ret != 0) {
+        fprintf(stderr, "cast: build failed (exit %d)\n", ret);
+        return false;
+    }
+ 
+    printf("cast: built %s/%s\n", cfg->build.out, cfg->package.name);
+    return true;
 }
