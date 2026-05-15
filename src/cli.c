@@ -33,6 +33,7 @@ static void usage(void) {
           "  cast init [name]     scaffold a new project\n"
           "  cast build           build (debug)\n"
           "  cast build --release build (release)\n"
+          "  cast clean           remove build directory\n"
           "  cast run [args...]   build and run\n"
           "  cast install         install binary to prefix\n"
           "  cast --help          show this message\n",
@@ -45,6 +46,49 @@ static void usage(void) {
         return false;
     }
     return config_load(CAST_TOML, cfg);
+}
+
+[[nodiscard]] static int cmd_clean(int argc, char *argv[]) {
+    (void) argc;
+    (void) argv;
+
+    CastConfig cfg;
+    if (!load_config(&cfg)) {
+        return 1;
+    }
+
+    // don't delete some stuff
+    char dir[512];
+    snprintf(dir, sizeof(dir), "%s", cfg.build.out);
+    if (strcmp(dir, ".") == 0 || strcmp(dir, "..") == 0) {
+        fprintf(stderr, "cast: clean failed (refusing to delete %s)\n", dir);
+        config_free(&cfg);
+        return 1;
+    }
+
+    if (strcmp(dir, "src") == 0 || strcmp(dir, "include") == 0) {
+        fprintf(stderr, "cast: clean failed (refusing to delete %s)\n", dir);
+        config_free(&cfg);
+        return 1;
+    }
+
+    if (strcmp(dir, "~") == 0 || strcmp(dir, "/home") == 0) {
+        fprintf(stderr, "cast: clean failed (refusing to delete %s)\n", dir);
+        config_free(&cfg);
+        return 1;
+    }
+
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "rm -rf %s", cfg.build.out);
+    config_free(&cfg);
+
+    if (system(cmd) != 0) {
+        fprintf(stderr, "cast: clean failed\n");
+        return 1;
+    }
+
+    printf("cast: cleaned\n");
+    return 0;
 }
 
 // cast build
@@ -172,6 +216,9 @@ static void usage(void) {
     }
     if (strcmp(cmd, "init") == 0) {
         return cmd_init(rest_argc, rest);
+    }
+    if (strcmp(cmd, "clean") == 0) {
+        return cmd_clean(rest_argc, rest);
     }
 
     if (strcmp(cmd, "--help") == 0 || strcmp(cmd, "-h") == 0) {
