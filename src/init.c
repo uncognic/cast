@@ -90,7 +90,8 @@ bool init_run(const char *name) {
              "std      = \"c17\"\n"
              "compiler = \"gcc\"\n"
              "\n"
-             "[build]\n"
+             "[[target]]\n"
+             "name    = \"%s\"\n"
              "src     = [\"src/**/*.c\"]\n"
              "include = [\"include\"]\n"
              "out     = \"build\"\n"
@@ -103,7 +104,7 @@ bool init_run(const char *name) {
              "\n"
              "[install]\n"
              "prefix = \"/usr/local\"\n",
-             project_name);
+             project_name, project_name);
 
     sb_clear(&path);
     path_join(&path, base, "cast.toml");
