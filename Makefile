@@ -1,9 +1,10 @@
 CC = clang
-CFLAGS = -std=c23 -Wall -Wextra -Wpedantic -Isrc
 DBGFLAGS = -g -fsanitize=address,undefined
 REFLAGS = -O3 -DNDEBUG
 
-SRC = $(shell find src -name '*.c')
+STD = -std=c23
+SRC = $(shell find src -name '*.c') extern/tomlc17.c
+CFLAGS = $(STD) -Wall -Wextra -Wpedantic -Isrc -Iextern -D_POSIX_C_SOURCE=200809L
 TARGET = cast
 
 .PHONY: all debug release clean
