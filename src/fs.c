@@ -1,17 +1,17 @@
 /*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "fs.h"
 
@@ -27,7 +27,7 @@
 // FileList
 
 void fl_init(FileList *fl) {
-    fl->paths = malloc(FL_INIT_CAP * sizeof(char));
+    fl->paths = malloc(FL_INIT_CAP * sizeof(char *));
     fl->count = 0;
     fl->cap = FL_INIT_CAP;
 }
@@ -48,7 +48,7 @@ void fl_push(FileList *fl, const char *path) {
     // if there is not enough space
     if (fl->count >= fl->cap) {
         fl->cap *= 2;
-        fl->paths = realloc(fl->paths, fl->cap * sizeof(char));
+        fl->paths = realloc(fl->paths, fl->cap * sizeof(char *));
         if (!fl->paths) {
             fprintf(stderr, "cast: out of memory\n");
             exit(1);
