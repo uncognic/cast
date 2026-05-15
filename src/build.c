@@ -199,8 +199,10 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         }
 
         double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
-        printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built %s/%s in %.2fs\n", target->out,
-               target->name, elapsed);
+        printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built %s/%s in mode " COL_GREEN COL_BOLD
+                                  "%s" COL_RESET " in %.2fs\n",
+               target->out, target->name, profile == PROFILE_RELEASE ? "release" : "debug",
+               elapsed);
     }
 
     if (!any) {
