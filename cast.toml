@@ -14,7 +14,7 @@ out = "build"
 flags = ["-g", "-fsanitize=address,undefined", "-D_POSIX_C_SOURCE=200809L"]
 
 [profile.release]
-flags = ["-O2", "-DNDEBUG", "-D_POSIX_C_SOURCE=200809L"]
+flags = ["-O2", "-DNDEBUG", "-D_POSIX_C_SOURCE=200809L", "-march=native"]
 
 [install]
 prefix = "/usr/local"
