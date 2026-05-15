@@ -4,7 +4,8 @@ version = "0.1.0"
 std = "c23"
 compiler = "gcc"
 
-[build]
+[[target]]
+name = "cast"
 src = ["src/**/*.c", "extern/**/*.c"]
 include = ["include", "extern"]
 out = "build"

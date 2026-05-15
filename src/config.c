@@ -1,17 +1,17 @@
 /*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "config.h"
 #include "../extern/tomlc17.h"
@@ -57,11 +57,18 @@ static void parse_profile(toml_datum_t t, CastProfile *p) {
     p->flags = arr_strings(toml_get(t, "flags"), &p->flag_count);
 }
 
+static void parse_target(toml_datum_t t, CastTarget *target) {
+    snprintf(target->out, sizeof(target->out), "build");
+    str_copy(target->name, sizeof(target->name), toml_get(t, "name"));
+    str_copy(target->out, sizeof(target->out), toml_get(t, "out"));
+    target->src = arr_strings(toml_get(t, "src"), &target->src_count);
+    target->include = arr_strings(toml_get(t, "include"), &target->include_count);
+}
+
 bool config_load(const char *path, CastConfig *cfg) {
     memset(cfg, 0, sizeof(*cfg));
 
     // defaults
-    snprintf(cfg->build.out, sizeof(cfg->build.out), "build");
     snprintf(cfg->install.prefix, sizeof(cfg->install.prefix), "/usr/local");
     snprintf(cfg->package.std, sizeof(cfg->package.std), "c17");
     snprintf(cfg->package.compiler, sizeof(cfg->package.compiler), "gcc");
@@ -83,12 +90,24 @@ bool config_load(const char *path, CastConfig *cfg) {
         str_copy(cfg->package.compiler, sizeof(cfg->package.compiler), toml_get(pkg, "compiler"));
     }
 
-    // [build]
-    toml_datum_t build = toml_get(root, "build");
-    if (build.type == TOML_TABLE) {
-        cfg->build.src = arr_strings(toml_get(build, "src"), &cfg->build.src_count);
-        cfg->build.include = arr_strings(toml_get(build, "include"), &cfg->build.include_count);
-        str_copy(cfg->build.out, sizeof(cfg->build.out), toml_get(build, "out"));
+    // [[target]]
+    toml_datum_t targets = toml_get(root, "target");
+    if (targets.type != TOML_ARRAY || targets.u.arr.size <= 0) {
+        fprintf(stderr, "cast: no [[target]] defined in config\n");
+        toml_free(res);
+        return false;
+    }
+
+    cfg->target_count = (size_t) targets.u.arr.size;
+    cfg->targets = calloc(cfg->target_count, sizeof(CastTarget));
+    if (!cfg->targets) {
+        fprintf(stderr, "cast: malloc failed\n");
+        toml_free(res);
+        return false;
+    }
+
+    for (size_t i = 0; i < cfg->target_count; i++) {
+        parse_target(targets.u.arr.elem[i], &cfg->targets[i]);
     }
 
     // [profile.debug] [profile.release]
@@ -106,34 +125,41 @@ bool config_load(const char *path, CastConfig *cfg) {
 }
 
 void config_free(CastConfig *cfg) {
-    for (size_t i = 0; i < cfg->build.src_count; i++) {
-        free(cfg->build.src[i]);
+    for (size_t i = 0; i < cfg->target_count; i++) {
+        CastTarget *t = &cfg->targets[i];
+        for (size_t j = 0; j < t->src_count; j++) {
+            free(t->src[j]);
+        }
+        for (size_t j = 0; j < t->include_count; j++) {
+            free(t->include[j]);
+        }
+        free(t->src);
+        free(t->include);
     }
-    for (size_t i = 0; i < cfg->build.include_count; i++) {
-        free(cfg->build.include[i]);
-    }
+    free(cfg->targets);
+
     for (size_t i = 0; i < cfg->debug.flag_count; i++) {
         free(cfg->debug.flags[i]);
     }
     for (size_t i = 0; i < cfg->release.flag_count; i++) {
         free(cfg->release.flags[i]);
     }
-
-    free(cfg->build.src);
-    free(cfg->build.include);
     free(cfg->debug.flags);
     free(cfg->release.flags);
 }
 
 void config_dump(const CastConfig *cfg) {
-    printf("[package]\n  name=%s  version=%s  std=%s\n", cfg->package.name, cfg->package.version,
-           cfg->package.std);
-    printf("[build]\n  out=%s\n", cfg->build.out);
-    for (size_t i = 0; i < cfg->build.src_count; i++) {
-        printf("  src[%zu]=%s\n", i, cfg->build.src[i]);
-    }
-    for (size_t i = 0; i < cfg->build.include_count; i++) {
-        printf("  include[%zu]=%s\n", i, cfg->build.include[i]);
+    printf("[package]\n  name=%s  version=%s  std=%s  compiler=%s\n", cfg->package.name,
+           cfg->package.version, cfg->package.std, cfg->package.compiler);
+    for (size_t i = 0; i < cfg->target_count; i++) {
+        const CastTarget *t = &cfg->targets[i];
+        printf("[[target]]\n  name=%s  out=%s\n", t->name, t->out);
+        for (size_t j = 0; j < t->src_count; j++) {
+            printf("  src[%zu]=%s\n", j, t->src[j]);
+        }
+        for (size_t j = 0; j < t->include_count; j++) {
+            printf("  include[%zu]=%s\n", j, t->include[j]);
+        }
     }
     printf("[install]\n  prefix=%s\n", cfg->install.prefix);
 }

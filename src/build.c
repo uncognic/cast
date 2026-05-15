@@ -59,26 +59,24 @@ static const char *glob_ext(const char *pattern) {
 }
 
 // collect source files matching pattern
-[[nodiscard]] static bool collect_sources(const CastConfig *cfg, FileList *out) {
+[[nodiscard]] static bool collect_sources(const CastTarget *target, FileList *out) {
     fl_init(out);
 
-    if (cfg->build.src_count == 0) {
-        // default to src/*.c
+    if (target->src_count == 0) {
         return fs_walk("src", ".c", out);
     }
 
-    for (size_t i = 0; i < cfg->build.src_count; i++) {
+    for (size_t i = 0; i < target->src_count; i++) {
         char basedir[1024];
-        glob_basedir(cfg->build.src[i], basedir, sizeof(basedir));
-        const char *ext = glob_ext(cfg->build.src[i]);
-
+        glob_basedir(target->src[i], basedir, sizeof(basedir));
+        const char *ext = glob_ext(target->src[i]);
         if (!fs_walk(basedir, ext, out)) {
             return false;
         }
     }
-
     return true;
 }
+
 [[nodiscard]] static bool write_compile_commands(const CastConfig *cfg, const FileList *sources,
                                                  const StrBuf *base_flags) {
     // get current working dir
@@ -112,102 +110,103 @@ static const char *glob_ext(const char *pattern) {
     return true;
 }
 
-bool build_run(const CastConfig *cfg, BuildProfile profile) {
-    // collect sources
-    FileList sources;
-    if (!collect_sources(cfg, &sources)) {
-        fl_free(&sources);
-        return false;
-    }
-
-    if (sources.count == 0) {
-        fprintf(stderr, "cast: no source files found\n");
-        fl_free(&sources);
-        return false;
-    }
-
-    // ensure output exists
-    if (!fs_mkdir_p(cfg->build.out)) {
-        fl_free(&sources);
-        return false;
-    }
-
-    // profile flags
+bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_name) {
     const CastProfile *prof = (profile == PROFILE_RELEASE) ? &cfg->release : &cfg->debug;
+    bool any = false;
 
-    // construct binary path <out>/<name>
-    StrBuf binpath = {0};
-    sb_init(&binpath);
-    path_join(&binpath, cfg->build.out, cfg->package.name);
+    for (size_t t = 0; t < cfg->target_count; t++) {
+        const CastTarget *target = &cfg->targets[t];
 
-    // build compiler command
-    StrBuf cmd = {0};
-    sb_init(&cmd);
+        // skip if target_name is given and doesn't match this target
+        if (target_name && strcmp(target->name, target_name) != 0) {
+            continue;
+        }
 
-    sb_append(&cmd, "clang");
-    sb_appendf(&cmd, " -std=%s", cfg->package.std);
-    sb_append(&cmd, " -Wall -Wextra");
+        any = true;
 
-    // include paths
-    for (size_t i = 0; i < cfg->build.include_count; i++) {
-        sb_appendf(&cmd, " -I%s", cfg->build.include[i]);
-    }
+        FileList sources;
+        if (!collect_sources(target, &sources)) {
+            fl_free(&sources);
+            return false;
+        }
 
-    // profile flags
-    for (size_t i = 0; i < prof->flag_count; i++) {
-        sb_appendf(&cmd, " %s", prof->flags[i]);
-    }
+        if (sources.count == 0) {
+            fprintf(stderr, "cast: no source files found for target '%s'\n", target->name);
+            fl_free(&sources);
+            return false;
+        }
 
-    // source files
-    for (size_t i = 0; i < sources.count; i++) {
-        sb_appendf(&cmd, " %s", sources.paths[i]);
-    }
+        if (!fs_mkdir_p(target->out)) {
+            fl_free(&sources);
+            return false;
+        }
 
-    sb_appendf(&cmd, " -o %s", binpath.data);
+        StrBuf binpath = {0};
+        sb_init(&binpath);
+        path_join(&binpath, target->out, target->name);
 
-    // write compile_commands.json for ides
-    StrBuf base_flags = {0};
-    sb_init(&base_flags);
+        StrBuf cmd = {0};
+        sb_init(&cmd);
 
-    sb_appendf(&base_flags, "-std=%s", cfg->package.std);
-    sb_append(&base_flags, " -Wall -Wextra");
+        sb_append(&cmd, cfg->package.compiler);
+        sb_appendf(&cmd, " -std=%s", cfg->package.std);
+        sb_append(&cmd, " -Wall -Wextra");
 
-    // include paths
-    for (size_t i = 0; i < cfg->build.include_count; i++) {
-        sb_appendf(&base_flags, " -I%s", cfg->build.include[i]);
-    }
+        for (size_t i = 0; i < target->include_count; i++) {
+            sb_appendf(&cmd, " -I%s", target->include[i]);
+        }
+        for (size_t i = 0; i < prof->flag_count; i++) {
+            sb_appendf(&cmd, " %s", prof->flags[i]);
+        }
+        for (size_t i = 0; i < sources.count; i++) {
+            sb_appendf(&cmd, " %s", sources.paths[i]);
+        }
 
-    // flags
-    for (size_t i = 0; i < prof->flag_count; i++) {
-        sb_appendf(&base_flags, " %s", prof->flags[i]);
-    }
+        sb_appendf(&cmd, " -o %s", binpath.data);
 
-    if (!write_compile_commands(cfg, &sources, &base_flags)) {
+        /* compile_commands.json */
+        StrBuf base_flags = {0};
+        sb_init(&base_flags);
+        sb_appendf(&base_flags, "-std=%s", cfg->package.std);
+        sb_append(&base_flags, " -Wall -Wextra");
+        for (size_t i = 0; i < target->include_count; i++) {
+            sb_appendf(&base_flags, " -I%s", target->include[i]);
+        }
+        for (size_t i = 0; i < prof->flag_count; i++) {
+            sb_appendf(&base_flags, " %s", prof->flags[i]);
+        }
+        bool result = write_compile_commands(cfg, &sources, &base_flags);
+        if (!result) {
+            fprintf(stderr, "cast: failed to write compile_commands.json\n");
+            sb_free(&base_flags);
+            fl_free(&sources);
+            return false;
+        }
+        sb_free(&base_flags);
+
+        struct timespec t0, t1;
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+        int ret = system(cmd.data);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+
         sb_free(&cmd);
         sb_free(&binpath);
         fl_free(&sources);
-        fprintf(stderr, "cast: failed to write compile_commands.json\n");
+
+        if (ret != 0) {
+            fprintf(stderr, COL_RED COL_BOLD "cast:" COL_RESET " build failed (exit %d)\n", ret);
+            return false;
+        }
+
+        double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
+        printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built %s/%s in %.2fs\n", target->out,
+               target->name, elapsed);
+    }
+
+    if (!any) {
+        fprintf(stderr, "cast: no target named '%s'\n", target_name);
         return false;
     }
 
-    sb_free(&base_flags);
-
-    struct timespec t0, t1;
-    clock_gettime(CLOCK_MONOTONIC, &t0);
-    int ret = system(cmd.data);
-    clock_gettime(CLOCK_MONOTONIC, &t1);
-
-    sb_free(&cmd);
-    sb_free(&binpath);
-    fl_free(&sources);
-
-    if (ret != 0) {
-        fprintf(stderr, COL_RED COL_BOLD "cast:" COL_RESET " build failed (exit %d)\n", ret);
-        return false;
-    }
-
-    double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
-    printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built %s/%s in %.2fs\n", cfg->build.out,
-           cfg->package.name, elapsed);
     return true;
 }

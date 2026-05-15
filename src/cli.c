@@ -57,36 +57,21 @@ static void usage(void) {
         return 1;
     }
 
-    // don't delete some stuff
-    char dir[512];
-    snprintf(dir, sizeof(dir), "%s", cfg.build.out);
-    if (strcmp(dir, ".") == 0 || strcmp(dir, "..") == 0) {
-        fprintf(stderr, "cast: clean failed (refusing to delete %s)\n", dir);
-        config_free(&cfg);
-        return 1;
+    // collect unique output directories from targets
+    for (size_t i = 0; i < cfg.target_count; i++) {
+        const char *out = cfg.targets[i].out;
+        if (strcmp(out, ".") == 0 || strcmp(out, "..") == 0 || strcmp(out, "src") == 0 ||
+            strcmp(out, "/") == 0) {
+            fprintf(stderr, "cast: clean refused to delete '%s'\n", out);
+            config_free(&cfg);
+            return 1;
+        }
+        char cmd[512];
+        snprintf(cmd, sizeof(cmd), "rm -rf %s", out);
+        system(cmd);
     }
 
-    if (strcmp(dir, "src") == 0 || strcmp(dir, "include") == 0) {
-        fprintf(stderr, "cast: clean failed (refusing to delete %s)\n", dir);
-        config_free(&cfg);
-        return 1;
-    }
-
-    if (strcmp(dir, "~") == 0 || strcmp(dir, "/home") == 0) {
-        fprintf(stderr, "cast: clean failed (refusing to delete %s)\n", dir);
-        config_free(&cfg);
-        return 1;
-    }
-
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd), "rm -rf %s", cfg.build.out);
     config_free(&cfg);
-
-    if (system(cmd) != 0) {
-        fprintf(stderr, "cast: clean failed\n");
-        return 1;
-    }
-
     printf("cast: cleaned\n");
     return 0;
 }
@@ -94,10 +79,13 @@ static void usage(void) {
 // cast build
 [[nodiscard]] static int cmd_build(int argc, char *argv[]) {
     BuildProfile profile = PROFILE_DEBUG;
+    const char *target_name = nullptr;
 
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "--release") == 0) {
             profile = PROFILE_RELEASE;
+        } else if (argv[i][0] != '-') {
+            target_name = argv[i];
         } else {
             fprintf(stderr, "cast: unknown flag '%s'\n", argv[i]);
             return 1;
@@ -108,46 +96,62 @@ static void usage(void) {
     if (!load_config(&cfg)) {
         return 1;
     }
-
-    bool ok = build_run(&cfg, profile);
+    bool ok = build_run(&cfg, profile, target_name);
     config_free(&cfg);
     return ok ? 0 : 1;
 }
 
 // cast run
 [[nodiscard]] static int cmd_run(int argc, char *argv[]) {
+    const char *target_name = nullptr;
+    int run_argc = argc;
+    char **run_argv = argv;
+
+    // first non-flag arg is target name
+    if (argc > 0 && argv[0][0] != '-') {
+        target_name = argv[0];
+        run_argc--;
+        run_argv++;
+    }
+
     CastConfig cfg;
     if (!load_config(&cfg)) {
         return 1;
     }
 
-    bool ok = build_run(&cfg, PROFILE_DEBUG);
+    bool ok = build_run(&cfg, PROFILE_DEBUG, target_name);
     if (!ok) {
         config_free(&cfg);
         return 1;
     }
 
-    // build path to bin
+    // find target to get output path
+    const char *name = nullptr;
+    const char *out = nullptr;
+    for (size_t i = 0; i < cfg.target_count; i++) {
+        if (!target_name || strcmp(cfg.targets[i].name, target_name) == 0) {
+            name = cfg.targets[i].name;
+            out = cfg.targets[i].out;
+            break;
+        }
+    }
+
     char binpath[512];
-    snprintf(binpath, sizeof(binpath), "./%s/%s", cfg.build.out, cfg.package.name);
+    snprintf(binpath, sizeof(binpath), "./%s/%s", out, name);
     config_free(&cfg);
 
-    // exec bin passing along args
-    char **exec_argv = malloc(((size_t) argc + 2) * sizeof(char *));
+    char **exec_argv = malloc(((size_t) run_argc + 2) * sizeof(char *));
     exec_argv[0] = binpath;
-    for (int i = 0; i < argc; i++) {
-        exec_argv[i + 1] = argv[i];
+    for (int i = 0; i < run_argc; i++) {
+        exec_argv[i + 1] = run_argv[i];
     }
-    exec_argv[argc + 1] = nullptr;
+    exec_argv[run_argc + 1] = nullptr;
 
     execv(binpath, exec_argv);
-
-    // execv only returns on error
     perror("cast: execv");
     free(exec_argv);
     return 1;
 }
-
 [[nodiscard]] static int cmd_install(int argc, char *argv[]) {
     (void) argc;
     (void) argv;
@@ -160,30 +164,19 @@ static void usage(void) {
 
     // construct src and dst paths
     char src[512], dst[512];
-    snprintf(src, sizeof(src), "%s/%s", cfg.build.out, cfg.package.name);
-    snprintf(dst, sizeof(dst), "%s/bin/%s", cfg.install.prefix, cfg.package.name);
+    for (size_t i = 0; i < cfg.target_count; i++) {
+        snprintf(src, sizeof(src), "%s/%s", cfg.targets[i].out, cfg.targets[i].name);
+        snprintf(dst, sizeof(dst), "%s/bin/%s", cfg.install.prefix, cfg.targets[i].name);
 
-    char bindir[512];
-    snprintf(bindir, sizeof(bindir), "%s/bin", cfg.install.prefix);
-    if (!fs_mkdir_p(bindir)) {
-        config_free(&cfg);
-        return 1;
+        char cmd[1200];
+        snprintf(cmd, sizeof(cmd), "install -m 755 %s %s", src, dst);
+        if (system(cmd) != 0) {
+            fprintf(stderr, "cast: install failed for target '%s'\n", cfg.targets[i].name);
+            config_free(&cfg);
+            return 1;
+        }
+        printf("cast: installed %s to %s\n", cfg.targets[i].name, dst);
     }
-
-    // copy binary
-    char cmd[1200];
-    snprintf(cmd, sizeof(cmd), "install -m 755 %s %s", src, dst);
-    if (system(cmd) != 0) {
-        fprintf(stderr, "cast: install failed (have you tried running as root?)\n");
-        config_free(&cfg);
-        return 1;
-    }
-
-    // set -x
-    snprintf(cmd, sizeof(cmd), "chmod 755 %s", dst);
-    system(cmd);
-
-    printf("cast: installed to %s\n", dst);
     config_free(&cfg);
     return 0;
 }
