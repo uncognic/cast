@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 [[nodiscard]] static bool write_file(const char *path, const char *content) {
     FILE *f = fopen(path, "w");
@@ -68,7 +69,18 @@ bool init_run(const char *name) {
     }
 
     // cast.toml
-    const char *project_name = name ? name : "myapp";
+    char cwdbuf[1024];
+    const char *project_name;
+    if (name) {
+        project_name = name;
+    } else {
+        if (!getcwd(cwdbuf, sizeof(cwdbuf))) {
+            perror("cast: getcwd");
+            sb_free(&path);
+            return false;
+        }
+        project_name = path_basename(cwdbuf);
+    }
 
     char toml[1024];
     snprintf(toml, sizeof(toml),
