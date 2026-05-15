@@ -172,7 +172,7 @@ static void usage(void) {
 
     // copy binary
     char cmd[1200];
-    snprintf(cmd, sizeof(cmd), "cp %s %s", src, dst);
+    snprintf(cmd, sizeof(cmd), "install -m 755 %s %s", src, dst);
     if (system(cmd) != 0) {
         fprintf(stderr, "cast: install failed (have you tried running as root?)\n");
         config_free(&cfg);

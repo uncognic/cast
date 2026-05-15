@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 // extract the base directory from a pattern like src/** /*.c
 // take everything before * and strip
@@ -78,6 +79,38 @@ static const char *glob_ext(const char *pattern) {
 
     return true;
 }
+[[nodiscard]] static bool write_compile_commands(const CastConfig *cfg, const FileList *sources,
+                                                 const StrBuf *base_flags) {
+    // get current working dir
+    char cwd[4096];
+    if (!getcwd(cwd, sizeof(cwd))) {
+        perror("cast: getcwd");
+        return false;
+    }
+
+    // open compile_commands.json for writing
+    FILE *f = fopen("compile_commands.json", "w");
+    if (!f) {
+        fprintf(stderr, "cast: cannot write compile_commands.json\n");
+        return false;
+    }
+
+    // write JSON array of compile commands
+    fputs("[\n", f);
+    for (size_t i = 0; i < sources->count; i++) {
+        fprintf(f,
+                "  {\n"
+                "    \"directory\": \"%s\",\n"
+                "    \"command\": \"%s %s\",\n"
+                "    \"file\": \"%s/%s\"\n"
+                "  }%s\n",
+                cwd, cfg->package.compiler, base_flags->data, cwd, sources->paths[i],
+                i + 1 < sources->count ? "," : "");
+    }
+    fputs("]\n", f);
+    fclose(f);
+    return true;
+}
 
 bool build_run(const CastConfig *cfg, BuildProfile profile) {
     // collect sources
@@ -131,6 +164,33 @@ bool build_run(const CastConfig *cfg, BuildProfile profile) {
     }
 
     sb_appendf(&cmd, " -o %s", binpath.data);
+
+    // write compile_commands.json for ides
+    StrBuf base_flags = {0};
+    sb_init(&base_flags);
+
+    sb_appendf(&base_flags, "-std=%s", cfg->package.std);
+    sb_append(&base_flags, " -Wall -Wextra");
+
+    // include paths
+    for (size_t i = 0; i < cfg->build.include_count; i++) {
+        sb_appendf(&base_flags, " -I%s", cfg->build.include[i]);
+    }
+
+    // flags
+    for (size_t i = 0; i < prof->flag_count; i++) {
+        sb_appendf(&base_flags, " %s", prof->flags[i]);
+    }
+
+    if (!write_compile_commands(cfg, &sources, &base_flags)) {
+        sb_free(&cmd);
+        sb_free(&binpath);
+        fl_free(&sources);
+        fprintf(stderr, "cast: failed to write compile_commands.json\n");
+        return false;
+    }
+
+    sb_free(&base_flags);
 
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
