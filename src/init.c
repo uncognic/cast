@@ -133,7 +133,7 @@ bool init_run(const char *name) {
     // .gitignore
     sb_clear(&path);
     path_join(&path, base, ".gitignore");
-    if (!write_file(path.data, "build/\n")) {
+    if (!write_file(path.data, "build/\ncompile_commands.json\n")) {
         sb_free(&path);
         return false;
     }
