@@ -316,6 +316,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         for (size_t i = 0; i < prof->flag_count; i++) {
             sb_appendf(&base_flags, " %s", prof->flags[i]);
         }
+        sb_appendf(&base_flags, " -DCAST_VERSION=\\\"%s\\\"", cfg->package.version);
+        sb_appendf(&base_flags, " -DCAST_NAME=\\\"%s\\\"", cfg->package.name);
         bool result = write_compile_commands(cfg, &sources, &base_flags);
         if (!result) {
             fprintf(stderr, "cast: failed to write compile_commands.json\n");
