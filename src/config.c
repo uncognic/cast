@@ -59,10 +59,25 @@ static void parse_profile(toml_datum_t t, CastProfile *p) {
 
 static void parse_target(toml_datum_t t, CastTarget *target) {
     snprintf(target->out, sizeof(target->out), "build");
+    target->type = TARGET_EXECUTABLE;
+
     str_copy(target->name, sizeof(target->name), toml_get(t, "name"));
     str_copy(target->out, sizeof(target->out), toml_get(t, "out"));
+
+    toml_datum_t type = toml_get(t, "type");
+    if (type.type == TOML_STRING && strcmp(type.u.s, "static") == 0) {
+        target->type = TARGET_STATIC;
+    } else if (type.type == TOML_STRING && strcmp(type.u.s, "executable") == 0) {
+        target->type = TARGET_EXECUTABLE;
+    } else {
+        fprintf(stderr,
+                "cast: warning: target '%s' has unknown type '%s', defaulting to executable\n",
+                target->name, type.type == TOML_STRING ? type.u.s : "null");
+    }
+
     target->src = arr_strings(toml_get(t, "src"), &target->src_count);
     target->include = arr_strings(toml_get(t, "include"), &target->include_count);
+    target->links = arr_strings(toml_get(t, "links"), &target->link_count);
 }
 
 bool config_load(const char *path, CastConfig *cfg) {
@@ -133,8 +148,12 @@ void config_free(CastConfig *cfg) {
         for (size_t j = 0; j < t->include_count; j++) {
             free(t->include[j]);
         }
+        for (size_t j = 0; j < t->link_count; j++) {
+            free(t->links[j]);
+        }
         free(t->src);
         free(t->include);
+        free(t->links);
     }
     free(cfg->targets);
 

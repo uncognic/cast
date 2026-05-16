@@ -6,9 +6,11 @@ compiler = "gcc"
 
 [[target]]
 name = "cast"
+type = "executable"
 src = ["src/**/*.c", "extern/**/*.c"]
 include = ["include", "extern"]
 out = "build"
+links = []
 
 [profile.debug]
 flags = ["-g", "-fsanitize=address,undefined", "-D_POSIX_C_SOURCE=200809L"]
