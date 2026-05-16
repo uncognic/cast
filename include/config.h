@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+typedef enum { TARGET_EXECUTABLE, TARGET_STATIC } TargetType;
+
 typedef struct {
     char name[128];
     char version[32];
@@ -26,11 +28,14 @@ typedef struct {
 } CastPackage;
 
 typedef struct {
+    TargetType type;
     char name[128];
     char **src; // array of source file patterns
     size_t src_count;
     char **include; // array of include directories
     size_t include_count;
+    char **links; // array of linked libraries
+    size_t link_count;
     char out[128]; // output directory
 } CastTarget;
 
