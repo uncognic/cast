@@ -37,7 +37,8 @@ static void usage(void) {
           "  cast clean           remove build directory\n"
           "  cast run [args...]   build and run\n"
           "  cast install         install binary to prefix\n"
-          "  cast --help          show this message\n",
+          "  cast --help          show this message\n"
+          "  cast --version       show version\n",
           stderr);
 }
 
@@ -200,6 +201,10 @@ static void usage(void) {
     return init_run(name) ? 0 : 1;
 }
 
+static void cmd_version(void) {
+    printf("%s version %s\n", CAST_NAME, CAST_VERSION);
+}
+
 [[nodiscard]] int cli_run(int argc, char *argv[]) {
     if (argc < 2) {
         usage();
@@ -225,6 +230,10 @@ static void usage(void) {
     }
     if (strcmp(cmd, "clean") == 0) {
         return cmd_clean(rest_argc, rest);
+    }
+    if (strcmp(cmd, "--version") == 0 || strcmp(cmd, "-v") == 0) {
+        cmd_version();
+        return 0;
     }
 
     if (strcmp(cmd, "--help") == 0 || strcmp(cmd, "-h") == 0) {

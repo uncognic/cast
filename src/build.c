@@ -285,6 +285,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         for (size_t i = 0; i < prof->flag_count; i++) {
             sb_appendf(&cmd, " %s", prof->flags[i]);
         }
+        sb_appendf(&cmd, " -DCAST_VERSION=\\\"%s\\\"", cfg->package.version);
+        sb_appendf(&cmd, " -DCAST_NAME=\\\"%s\\\"", cfg->package.name);
 
         // link static targets
         for (size_t i = 0; i < target->link_count; i++) {
