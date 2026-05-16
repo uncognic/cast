@@ -122,8 +122,11 @@ static const char *glob_ext(const char *pattern) {
         return false;
     }
 
-    if (!fs_mkdir_p(target->out)) {
-        fprintf(stderr, "cast: failed to create output directory '%s'\n", target->out);
+    char outdir[512];
+    snprintf(outdir, sizeof(outdir), "%s/%s", target->out,
+             prof == &cfg->release ? "release" : "debug");
+    if (!fs_mkdir_p(outdir)) {
+        fprintf(stderr, "cast: failed to create output directory '%s'\n", outdir);
         fl_free(&sources);
         return false;
     }
@@ -174,7 +177,8 @@ static const char *glob_ext(const char *pattern) {
     }
     StrBuf libpath = {0};
     sb_init(&libpath);
-    sb_appendf(&libpath, "%s/lib%s.a", target->out, target->name);
+    sb_appendf(&libpath, "%s/%s/lib%s.a", target->out, prof == &cfg->release ? "release" : "debug",
+               target->name);
 
     StrBuf ar_cmd = {0};
     sb_init(&ar_cmd);
@@ -197,8 +201,9 @@ static const char *glob_ext(const char *pattern) {
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
 
-    printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built static lib %s in %.2fs\n", libpath.data,
-           elapsed);
+    printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built static lib %s in mode " COL_GREEN COL_BOLD
+                              "%s" COL_RESET " in %.2fs\n",
+           libpath.data, prof == &cfg->release ? "release" : "debug", elapsed);
     sb_free(&libpath);
     return true;
 }
@@ -253,14 +258,19 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
             return false;
         }
 
-        if (!fs_mkdir_p(target->out)) {
+        char outdir[1024];
+        snprintf(outdir, sizeof(outdir), "%s/%s", target->out,
+                 profile == PROFILE_RELEASE ? "release" : "debug");
+        if (!fs_mkdir_p(outdir)) {
+            fprintf(stderr, "cast: failed to create output directory '%s'\n", outdir);
             fl_free(&sources);
             return false;
         }
 
         StrBuf binpath = {0};
         sb_init(&binpath);
-        path_join(&binpath, target->out, target->name);
+        sb_appendf(&binpath, "%s/%s/%s", target->out,
+                   profile == PROFILE_RELEASE ? "release" : "debug", target->name);
 
         StrBuf cmd = {0};
         sb_init(&cmd);
@@ -275,14 +285,18 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         for (size_t i = 0; i < prof->flag_count; i++) {
             sb_appendf(&cmd, " %s", prof->flags[i]);
         }
+
+        // link static targets
         for (size_t i = 0; i < target->link_count; i++) {
             for (size_t d = 0; d < cfg->target_count; d++) {
                 if (strcmp(cfg->targets[d].name, target->links[i]) == 0) {
-                    sb_appendf(&cmd, " -L%s -l%s", cfg->targets[d].out, target->links[i]);
+                    sb_appendf(&cmd, " -L%s/%s -l%s", cfg->targets[d].out,
+                               profile == PROFILE_RELEASE ? "release" : "debug", target->links[i]);
                     break;
                 }
             }
         }
+
         for (size_t i = 0; i < sources.count; i++) {
             sb_appendf(&cmd, " %s", sources.paths[i]);
         }
@@ -324,10 +338,10 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         }
 
         double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
-        printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built %s/%s in mode " COL_GREEN COL_BOLD
+        printf(COL_GREEN COL_BOLD "cast:" COL_RESET " built %s/%s/%s in mode " COL_GREEN COL_BOLD
                                   "%s" COL_RESET " in %.2fs\n",
-               target->out, target->name, profile == PROFILE_RELEASE ? "release" : "debug",
-               elapsed);
+               target->out, profile == PROFILE_RELEASE ? "release" : "debug", target->name,
+               profile == PROFILE_RELEASE ? "release" : "debug", elapsed);
     }
 
     if (!any) {
