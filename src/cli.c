@@ -15,6 +15,7 @@
 
 #include "cli.h"
 #include "build.h"
+#include "color.h"
 #include "config.h"
 #include "fs.h"
 #include "init.h"
@@ -186,7 +187,8 @@ static void usage(void) {
             config_free(&cfg);
             return 1;
         }
-        printf("cast: installed %s to %s\n", cfg.targets[i].name, dst);
+        printf(COL_BOLD COL_GREEN "cast: " COL_RESET "installed %s to %s\n", cfg.targets[i].name,
+               dst);
     }
     config_free(&cfg);
     return 0;
