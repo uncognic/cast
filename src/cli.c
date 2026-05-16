@@ -137,7 +137,7 @@ static void usage(void) {
     }
 
     char binpath[512];
-    snprintf(binpath, sizeof(binpath), "./%s/%s", out, name);
+    snprintf(binpath, sizeof(binpath), "./%s/debug/%s", out, name);
     config_free(&cfg);
 
     char **exec_argv = malloc(((size_t) run_argc + 2) * sizeof(char *));
@@ -162,10 +162,21 @@ static void usage(void) {
         return 1;
     }
 
+    // build
+    if (!build_run(&cfg, PROFILE_RELEASE, nullptr)) {
+        config_free(&cfg);
+        return 1;
+    }
+
     // construct src and dst paths
     char src[512], dst[512];
     for (size_t i = 0; i < cfg.target_count; i++) {
-        snprintf(src, sizeof(src), "%s/%s", cfg.targets[i].out, cfg.targets[i].name);
+        // skip static
+        if (cfg.targets[i].type == TARGET_STATIC) {
+            continue;
+        }
+
+        snprintf(src, sizeof(src), "%s/release/%s", cfg.targets[i].out, cfg.targets[i].name);
         snprintf(dst, sizeof(dst), "%s/bin/%s", cfg.install.prefix, cfg.targets[i].name);
 
         char cmd[1200];
