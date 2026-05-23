@@ -17,6 +17,7 @@
 #include "build.h"
 #include "color.h"
 #include "config.h"
+#include "deps.h"
 #include "fs.h"
 #include "init.h"
 
@@ -71,6 +72,10 @@ static void usage(void) {
         char cmd[512];
         snprintf(cmd, sizeof(cmd), "rm -rf %s", out);
         system(cmd);
+    }
+
+    if (cfg.dep_count > 0) {
+        system("rm -rf " CAST_DEPS_DIR);
     }
 
     config_free(&cfg);

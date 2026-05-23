@@ -53,6 +53,8 @@ void sb_init(StrBuf *sb) {
         fprintf(stderr, "out of memory for strbuf\n");
         exit(1);
     }
+
+    sb->data[0] = '\0';
 }
 
 // free sb

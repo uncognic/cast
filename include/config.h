@@ -22,6 +22,13 @@ typedef enum { TARGET_EXECUTABLE, TARGET_STATIC } TargetType;
 
 typedef struct {
     char name[128];
+    char git[512];
+    char tag[64];
+    char path[512]; // local path alternative to git
+} CastDep;
+
+typedef struct {
+    char name[128];
     char version[32];
     char std[16];
     char compiler[64];
@@ -52,6 +59,8 @@ typedef struct {
     CastPackage package;
     CastTarget *targets;
     size_t target_count;
+    CastDep *deps;
+    size_t dep_count;
     CastProfile debug;
     CastProfile release;
     CastInstall install;

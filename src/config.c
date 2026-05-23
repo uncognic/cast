@@ -80,6 +80,13 @@ static void parse_target(toml_datum_t t, CastTarget *target) {
     target->links = arr_strings(toml_get(t, "links"), &target->link_count);
 }
 
+static void parse_dep(const char *name, toml_datum_t t, CastDep *dep) {
+    snprintf(dep->name, sizeof(dep->name), "%s", name);
+    str_copy(dep->git, sizeof(dep->git), toml_get(t, "git"));
+    str_copy(dep->tag, sizeof(dep->tag), toml_get(t, "tag"));
+    str_copy(dep->path, sizeof(dep->path), toml_get(t, "path"));
+}
+
 bool config_load(const char *path, CastConfig *cfg) {
     memset(cfg, 0, sizeof(*cfg));
 
@@ -125,6 +132,20 @@ bool config_load(const char *path, CastConfig *cfg) {
         parse_target(targets.u.arr.elem[i], &cfg->targets[i]);
     }
 
+    toml_datum_t deps = toml_get(root, "deps");
+    if (deps.type == TOML_TABLE && deps.u.tab.size > 0) {
+        cfg->dep_count = (size_t) deps.u.tab.size;
+        cfg->deps = calloc(cfg->dep_count, sizeof(CastDep));
+        if (!cfg->deps) {
+            fputs("cast: out of memory\n", stderr);
+            exit(1);
+        }
+
+        for (int i = 0; i < deps.u.tab.size; i++) {
+            parse_dep(deps.u.tab.key[i], deps.u.tab.value[i], &cfg->deps[i]);
+        }
+    }
+
     // [profile.debug] [profile.release]
     parse_profile(toml_seek(root, "profile.debug"), &cfg->debug);
     parse_profile(toml_seek(root, "profile.release"), &cfg->release);
@@ -165,6 +186,7 @@ void config_free(CastConfig *cfg) {
     }
     free(cfg->debug.flags);
     free(cfg->release.flags);
+    free(cfg->deps);
 }
 
 void config_dump(const CastConfig *cfg) {
@@ -179,6 +201,10 @@ void config_dump(const CastConfig *cfg) {
         for (size_t j = 0; j < t->include_count; j++) {
             printf("  include[%zu]=%s\n", j, t->include[j]);
         }
+    }
+    for (size_t i = 0; i < cfg->dep_count; i++) {
+        printf("[deps.%s]\n  git=%s  tag=%s\n", cfg->deps[i].name, cfg->deps[i].git,
+               cfg->deps[i].tag);
     }
     printf("[install]\n  prefix=%s\n", cfg->install.prefix);
 }

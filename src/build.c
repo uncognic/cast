@@ -15,6 +15,7 @@
 
 #include "build.h"
 #include "color.h"
+#include "deps.h"
 #include "fs.h"
 #include "strbuf.h"
 
@@ -212,6 +213,25 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
     const CastProfile *prof = (profile == PROFILE_RELEASE) ? &cfg->release : &cfg->debug;
     bool any = false;
 
+    // inject deps
+    if (!deps_resolve(cfg)) {
+        return false;
+    }
+
+    // include and link flags
+    StrBuf dep_includes = {0};
+    StrBuf dep_links = {0};
+    sb_init(&dep_includes);
+    sb_init(&dep_links);
+
+    for (size_t i = 0; i < cfg->dep_count; i++) {
+        char inc[512], lib[512];
+        dep_include_path(&cfg->deps[i], inc, sizeof(inc));
+        dep_lib_path(&cfg->deps[i], lib, sizeof(lib));
+        sb_appendf(&dep_includes, " -I%s", inc);
+        sb_appendf(&dep_links, " %s", lib);
+    }
+
     for (size_t t = 0; t < cfg->target_count; t++) {
         const CastTarget *target = &cfg->targets[t];
 
@@ -220,12 +240,12 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
             continue;
         }
 
-        any = true;
-
-        // don't build static targets in the main loop
+        // don't build static targets in the main loop (they're built as deps of executables)
         if (target->type == TARGET_STATIC && !target_name) {
             continue;
         }
+
+        any = true;
 
         // static deps
         for (size_t i = 0; i < target->link_count; i++) {
@@ -302,6 +322,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         for (size_t i = 0; i < sources.count; i++) {
             sb_appendf(&cmd, " %s", sources.paths[i]);
         }
+        sb_append(&cmd, dep_includes.data);
+        sb_append(&cmd, dep_links.data);
 
         sb_appendf(&cmd, " -o %s", binpath.data);
 
@@ -318,6 +340,7 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         }
         sb_appendf(&base_flags, " -DCAST_VERSION=\\\"%s\\\"", cfg->package.version);
         sb_appendf(&base_flags, " -DCAST_NAME=\\\"%s\\\"", cfg->package.name);
+        sb_append(&base_flags, dep_includes.data);
         bool result = write_compile_commands(cfg, &sources, &base_flags);
         if (!result) {
             fprintf(stderr, "cast: failed to write compile_commands.json\n");
@@ -335,6 +358,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         sb_free(&cmd);
         sb_free(&binpath);
         fl_free(&sources);
+        sb_free(&dep_includes);
+        sb_free(&dep_links);
 
         if (ret != 0) {
             fprintf(stderr, COL_RED COL_BOLD "cast:" COL_RESET " build failed (exit %d)\n", ret);
