@@ -269,12 +269,16 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         FileList sources;
         if (!collect_sources(target, &sources)) {
             fl_free(&sources);
+            sb_free(&dep_includes);
+            sb_free(&dep_links);
             return false;
         }
 
         if (sources.count == 0) {
             fprintf(stderr, "cast: no source files found for target '%s'\n", target->name);
             fl_free(&sources);
+            sb_free(&dep_includes);
+            sb_free(&dep_links);
             return false;
         }
 
@@ -284,6 +288,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         if (!fs_mkdir_p(outdir)) {
             fprintf(stderr, "cast: failed to create output directory '%s'\n", outdir);
             fl_free(&sources);
+            sb_free(&dep_includes);
+            sb_free(&dep_links);
             return false;
         }
 
@@ -346,6 +352,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
             fprintf(stderr, "cast: failed to write compile_commands.json\n");
             sb_free(&base_flags);
             fl_free(&sources);
+            sb_free(&dep_includes);
+            sb_free(&dep_links);
             return false;
         }
         sb_free(&base_flags);
@@ -358,11 +366,11 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         sb_free(&cmd);
         sb_free(&binpath);
         fl_free(&sources);
-        sb_free(&dep_includes);
-        sb_free(&dep_links);
 
         if (ret != 0) {
             fprintf(stderr, COL_RED COL_BOLD "cast:" COL_RESET " build failed (exit %d)\n", ret);
+            sb_free(&dep_includes);
+            sb_free(&dep_links);
             return false;
         }
 
@@ -372,6 +380,9 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
                target->out, profile == PROFILE_RELEASE ? "release" : "debug", target->name,
                profile == PROFILE_RELEASE ? "release" : "debug", elapsed);
     }
+
+    sb_free(&dep_includes);
+    sb_free(&dep_links);
 
     if (!any) {
         fprintf(stderr, "cast: no target named '%s'\n", target_name);
