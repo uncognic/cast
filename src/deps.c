@@ -118,7 +118,7 @@ const char *dep_include_path(const CastDep *dep, char *buf, size_t bufsz) {
         perror("cast: getcwd");
         return false;
     }
-    char abs_dep_dir[4096];
+    char abs_dep_dir[4097];
     snprintf(abs_dep_dir, sizeof(abs_dep_dir), "%s/%s", cwd, dep_dir);
 
     StrBuf cmd = {0};
