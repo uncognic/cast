@@ -1,11 +1,12 @@
 # cast
-Build tool for C. Easy to get started like Rust's Cargo
+build tool for C. easy to get started like rust's cargo
 ```sh
 cast init myapp
 cd myapp
-cast build
+cast run
+doas cast install
 ```
-It reads a `cast.toml` in your project root, which it generates, and handles compilation, profiles and installation.
+it reads a `cast.toml` in your project root, which it generates, and handles compilation, profiles and installation.
 
 ```
 cast - a build tool for C
@@ -21,7 +22,4 @@ usage:
 ```
 
 ## building cast
-Cast builds itself. Bootstrap it with the build.sh:
-```sh
-sh build.sh && cast build
-```
+cast builds itself. bootstrap it with the `build.sh` script
