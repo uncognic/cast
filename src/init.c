@@ -12,7 +12,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
+#define _POSIX_C_SOURCE 200809L
 #include "init.h"
 #include "fs.h"
 #include "strbuf.h"
@@ -82,31 +82,12 @@ bool init_run(const char *name) {
         project_name = path_basename(cwdbuf);
     }
 
-    char toml[1024];
+    char toml[256];
     snprintf(toml, sizeof(toml),
              "[package]\n"
              "name = \"%s\"\n"
-             "version = \"0.1.0\"\n"
-             "std = \"c17\"\n"
-             "compiler = \"gcc\"\n"
-             "\n"
-             "[[target]]\n"
-             "name = \"%s\"\n"
-             "type = \"executable\"\n"
-             "src = [\"src/**/*.c\"]\n"
-             "include = [\"include\"]\n"
-             "out = \"build\"\n"
-             "links = []\n"
-             "\n"
-             "[profile.debug]\n"
-             "flags = [\"-g\", \"-fsanitize=address,undefined\", \"-O0\"]\n"
-             "\n"
-             "[profile.release]\n"
-             "flags = [\"-O3\", \"-DNDEBUG\"]\n"
-             "\n"
-             "[install]\n"
-             "prefix = \"/usr/local\"\n",
-             project_name, project_name);
+             "version = \"0.1.0\"\n",
+             project_name);
 
     sb_clear(&path);
     path_join(&path, base, "cast.toml");

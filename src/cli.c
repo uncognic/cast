@@ -12,7 +12,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
+#define _POSIX_C_SOURCE 200809L
 #include "cli.h"
 #include "build.h"
 #include "color.h"
@@ -44,10 +44,6 @@ static void usage(void) {
 }
 
 [[nodiscard]] static bool load_config(CastConfig *cfg) {
-    if (!fs_exists(CAST_TOML)) {
-        fprintf(stderr, "cast: no cast.toml found in current directory\n");
-        return false;
-    }
     return config_load(CAST_TOML, cfg);
 }
 
