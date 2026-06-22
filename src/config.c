@@ -146,7 +146,7 @@ bool config_load(const char *path, CastConfig *cfg) {
 
     // defaults
     snprintf(cfg->install.prefix, sizeof(cfg->install.prefix), "/usr/local");
-    snprintf(cfg->package.std, sizeof(cfg->package.std), "c23");
+    snprintf(cfg->package.std, sizeof(cfg->package.std), "c99");
     snprintf(cfg->package.compiler, sizeof(cfg->package.compiler), "gcc");
 
     /* when no config file exists, use default config with default target */

@@ -1,3 +1,4 @@
 [package]
 name = "cast"
 version = "1.0.0"
+std = "c23"

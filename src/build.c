@@ -71,6 +71,9 @@ static const char *glob_ext(const char *pattern) {
         char basedir[1024];
         glob_basedir(target->src[i], basedir, sizeof(basedir));
         const char *ext = glob_ext(target->src[i]);
+        if (!fs_exists(basedir)) {
+            continue;
+        }
         if (!fs_walk(basedir, ext, out)) {
             return false;
         }
