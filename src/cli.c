@@ -67,11 +67,19 @@ static void usage(void) {
         }
         char cmd[512];
         snprintf(cmd, sizeof(cmd), "rm -rf %s", out);
-        system(cmd);
+        if (system(cmd) != 0) {
+            fprintf(stderr, "cast: failed to run clean command");
+            config_free(&cfg);
+            return 1;
+        }
     }
 
     if (cfg.dep_count > 0) {
-        system("rm -rf " CAST_DEPS_DIR);
+        if (system("rm -rf " CAST_DEPS_DIR) != 0) {
+            fprintf(stderr, "cast: failed to remove dependency directories");
+            config_free(&cfg);
+            return 1;
+        }
     }
 
     config_free(&cfg);
