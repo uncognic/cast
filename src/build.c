@@ -79,35 +79,22 @@ static const char *glob_ext(const char *pattern) {
 }
 
 [[nodiscard]] static bool write_compile_commands(const CastConfig *cfg, const FileList *sources,
-                                                 const StrBuf *base_flags) {
-    // get current working dir
+                                                 const StrBuf *base_flags, StrBuf *entries) {
     char cwd[4096];
     if (!getcwd(cwd, sizeof(cwd))) {
         perror("cast: getcwd");
         return false;
     }
 
-    // open compile_commands.json for writing
-    FILE *f = fopen("compile_commands.json", "w");
-    if (!f) {
-        fprintf(stderr, "cast: cannot write compile_commands.json\n");
-        return false;
-    }
-
-    // write JSON array of compile commands
-    fputs("[\n", f);
     for (size_t i = 0; i < sources->count; i++) {
-        fprintf(f,
-                "  {\n"
-                "    \"directory\": \"%s\",\n"
-                "    \"command\": \"%s %s\",\n"
-                "    \"file\": \"%s/%s\"\n"
-                "  }%s\n",
-                cwd, cfg->package.compiler, base_flags->data, cwd, sources->paths[i],
-                i + 1 < sources->count ? "," : "");
+        sb_appendf(entries,
+                   "  {\n"
+                   "    \"directory\": \"%s\",\n"
+                   "    \"command\": \"%s %s\",\n"
+                   "    \"file\": \"%s/%s\"\n"
+                   "  },\n",
+                   cwd, cfg->package.compiler, base_flags->data, cwd, sources->paths[i]);
     }
-    fputs("]\n", f);
-    fclose(f);
     return true;
 }
 
@@ -232,6 +219,9 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         sb_appendf(&dep_links, " %s", lib);
     }
 
+    StrBuf cc_entries = {0};
+    sb_init(&cc_entries);
+
     for (size_t t = 0; t < cfg->target_count; t++) {
         const CastTarget *target = &cfg->targets[t];
 
@@ -347,7 +337,7 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         sb_appendf(&base_flags, " -DCAST_VERSION=\\\"%s\\\"", cfg->package.version);
         sb_appendf(&base_flags, " -DCAST_NAME=\\\"%s\\\"", cfg->package.name);
         sb_append(&base_flags, dep_includes.data);
-        bool result = write_compile_commands(cfg, &sources, &base_flags);
+        bool result = write_compile_commands(cfg, &sources, &base_flags, &cc_entries);
         if (!result) {
             fprintf(stderr, "cast: failed to write compile_commands.json\n");
             sb_free(&base_flags);
@@ -380,6 +370,21 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
                target->out, profile == PROFILE_RELEASE ? "release" : "debug", target->name,
                profile == PROFILE_RELEASE ? "release" : "debug", elapsed);
     }
+
+    /* write compile_commands.json with all targets */
+    if (cc_entries.len > 0) {
+        if (cc_entries.len >= 2) {
+            cc_entries.data[cc_entries.len - 2] = '\n';
+            cc_entries.len--;
+            cc_entries.data[cc_entries.len] = 0;
+        }
+        FILE *f = fopen("compile_commands.json", "w");
+        if (f) {
+            fprintf(f, "[\n%s]\n", cc_entries.data);
+            fclose(f);
+        }
+    }
+    sb_free(&cc_entries);
 
     sb_free(&dep_includes);
     sb_free(&dep_links);
