@@ -27,54 +27,65 @@
 
 // extract the base directory from a pattern like src/** /*.c
 // take everything before * and strip
-static void glob_basedir(const char *pattern, char *buf, size_t buf_size) {
+static void glob_basedir(const char *pattern, char *buf, size_t buf_size)
+{
     const char *star = strchr(pattern, '*');
     // no star, use the whole pattern
-    if (!star) {
+    if (!star)
+    {
         snprintf(buf, buf_size, "%s", pattern);
         return;
     }
 
-    size_t len = (size_t) (star - pattern);
-    if (len >= buf_size) {
+    size_t len = (size_t)(star - pattern);
+    if (len >= buf_size)
+    {
         len = buf_size - 1;
     }
     memcpy(buf, pattern, len);
     buf[len] = '\0';
 
     // strip trailing slash
-    while (len > 0 && buf[len - 1] == '/') {
+    while (len > 0 && buf[len - 1] == '/')
+    {
         buf[--len] = '\0';
     }
 
-    if (len == 0) {
+    if (len == 0)
+    {
         // if the base dir is empty, use current dir
         snprintf(buf, buf_size, ".");
     }
 }
 
 // extract file extension
-static const char *glob_ext(const char *pattern) {
+static const char *glob_ext(const char *pattern)
+{
     const char *dot = strrchr(pattern, '.');
     return dot ? dot : "";
 }
 
 // collect source files matching pattern
-[[nodiscard]] static bool collect_sources(const CastTarget *target, FileList *out) {
+[[nodiscard]] static bool collect_sources(const CastTarget *target, FileList *out)
+{
     fl_init(out);
 
-    if (target->src_count == 0) {
+    if (target->src_count == 0)
+    {
         return fs_walk("src", ".c", out);
     }
 
-    for (size_t i = 0; i < target->src_count; i++) {
+    for (size_t i = 0; i < target->src_count; i++)
+    {
         char basedir[1024];
         glob_basedir(target->src[i], basedir, sizeof(basedir));
         const char *ext = glob_ext(target->src[i]);
-        if (!fs_exists(basedir)) {
+        if (!fs_exists(basedir))
+        {
             continue;
         }
-        if (!fs_walk(basedir, ext, out)) {
+        if (!fs_walk(basedir, ext, out))
+        {
             return false;
         }
     }
@@ -82,14 +93,17 @@ static const char *glob_ext(const char *pattern) {
 }
 
 [[nodiscard]] static bool write_compile_commands(const CastConfig *cfg, const FileList *sources,
-                                                 const StrBuf *base_flags, StrBuf *entries) {
+                                                 const StrBuf *base_flags, StrBuf *entries)
+{
     char cwd[4096];
-    if (!getcwd(cwd, sizeof(cwd))) {
+    if (!getcwd(cwd, sizeof(cwd)))
+    {
         perror("cast: getcwd");
         return false;
     }
 
-    for (size_t i = 0; i < sources->count; i++) {
+    for (size_t i = 0; i < sources->count; i++)
+    {
         sb_appendf(entries,
                    "  {\n"
                    "    \"directory\": \"%s\",\n"
@@ -102,12 +116,14 @@ static const char *glob_ext(const char *pattern) {
 }
 
 [[nodiscard]] static bool build_static(const CastConfig *cfg, const CastTarget *target,
-                                       const CastProfile *prof) {
+                                       const CastProfile *prof)
+{
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
 
     FileList sources;
-    if (!collect_sources(target, &sources)) {
+    if (!collect_sources(target, &sources))
+    {
         fprintf(stderr, "cast: failed to collect sources for target '%s'\n", target->name);
         fl_free(&sources);
         return false;
@@ -116,7 +132,8 @@ static const char *glob_ext(const char *pattern) {
     char outdir[512];
     snprintf(outdir, sizeof(outdir), "%s/%s", target->out,
              prof == &cfg->release ? "release" : "debug");
-    if (!fs_mkdir_p(outdir)) {
+    if (!fs_mkdir_p(outdir))
+    {
         fprintf(stderr, "cast: failed to create output directory '%s'\n", outdir);
         fl_free(&sources);
         return false;
@@ -126,7 +143,8 @@ static const char *glob_ext(const char *pattern) {
     sb_init(&obj_files);
 
     // compile each source file to object file
-    for (size_t i = 0; i < sources.count; i++) {
+    for (size_t i = 0; i < sources.count; i++)
+    {
         // derive path: build/basename.o
         const char *base = path_basename(sources.paths[i]);
         StrBuf objpath = {0};
@@ -140,11 +158,13 @@ static const char *glob_ext(const char *pattern) {
         sb_appendf(&cmd, " -std=%s", cfg->package.std);
         sb_append(&cmd, " -Wall -Wextra -c");
 
-        for (size_t j = 0; j < target->include_count; j++) {
+        for (size_t j = 0; j < target->include_count; j++)
+        {
             sb_appendf(&cmd, " -I%s", target->include[j]);
         }
 
-        for (size_t j = 0; j < prof->flag_count; j++) {
+        for (size_t j = 0; j < prof->flag_count; j++)
+        {
             sb_appendf(&cmd, " %s", prof->flags[j]);
         }
 
@@ -152,7 +172,8 @@ static const char *glob_ext(const char *pattern) {
 
         int ret = system(cmd.data);
         sb_free(&cmd);
-        if (ret != 0) {
+        if (ret != 0)
+        {
             fprintf(stderr,
                     COL_RED COL_BOLD "cast:" COL_RESET " compilation " COL_RED COL_BOLD
                                      "failed " COL_RESET "for '%s' (exit %d)\n",
@@ -180,7 +201,8 @@ static const char *glob_ext(const char *pattern) {
     sb_free(&obj_files);
     fl_free(&sources);
 
-    if (ret != 0) {
+    if (ret != 0)
+    {
         fprintf(stderr,
                 COL_RED COL_BOLD "cast:" COL_RESET " ar" COL_RED COL_BOLD "failed " COL_RESET
                                  "for target '%s' (exit %d)\n",
@@ -199,12 +221,14 @@ static const char *glob_ext(const char *pattern) {
     return true;
 }
 
-bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_name) {
+bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_name)
+{
     const CastProfile *prof = (profile == PROFILE_RELEASE) ? &cfg->release : &cfg->debug;
     bool any = false;
 
     // inject deps
-    if (!deps_resolve(cfg)) {
+    if (!deps_resolve(cfg))
+    {
         return false;
     }
 
@@ -214,7 +238,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
     sb_init(&dep_includes);
     sb_init(&dep_links);
 
-    for (size_t i = 0; i < cfg->dep_count; i++) {
+    for (size_t i = 0; i < cfg->dep_count; i++)
+    {
         char inc[512], lib[512];
         dep_include_path(&cfg->deps[i], inc, sizeof(inc));
         dep_lib_path(&cfg->deps[i], lib, sizeof(lib));
@@ -225,26 +250,33 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
     StrBuf cc_entries = {0};
     sb_init(&cc_entries);
 
-    for (size_t t = 0; t < cfg->target_count; t++) {
+    for (size_t t = 0; t < cfg->target_count; t++)
+    {
         const CastTarget *target = &cfg->targets[t];
 
         // skip if target_name is given and doesn't match this target
-        if (target_name && strcmp(target->name, target_name) != 0) {
+        if (target_name && strcmp(target->name, target_name) != 0)
+        {
             continue;
         }
 
         // don't build static targets in the main loop (they're built as deps of executables)
-        if (target->type == TARGET_STATIC && !target_name) {
+        if (target->type == TARGET_STATIC && !target_name)
+        {
             continue;
         }
 
         any = true;
 
         // static deps
-        for (size_t i = 0; i < target->link_count; i++) {
-            for (size_t d = 0; d < cfg->target_count; d++) {
-                if (strcmp(cfg->targets[d].name, target->links[i]) == 0) {
-                    if (!build_static(cfg, &cfg->targets[d], prof)) {
+        for (size_t i = 0; i < target->link_count; i++)
+        {
+            for (size_t d = 0; d < cfg->target_count; d++)
+            {
+                if (strcmp(cfg->targets[d].name, target->links[i]) == 0)
+                {
+                    if (!build_static(cfg, &cfg->targets[d], prof))
+                    {
                         return false;
                     }
                     break;
@@ -252,22 +284,26 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
             }
         }
 
-        if (target->type == TARGET_STATIC) {
-            if (!build_static(cfg, target, prof)) {
+        if (target->type == TARGET_STATIC)
+        {
+            if (!build_static(cfg, target, prof))
+            {
                 return false;
             }
             continue;
         }
 
         FileList sources;
-        if (!collect_sources(target, &sources)) {
+        if (!collect_sources(target, &sources))
+        {
             fl_free(&sources);
             sb_free(&dep_includes);
             sb_free(&dep_links);
             return false;
         }
 
-        if (sources.count == 0) {
+        if (sources.count == 0)
+        {
             fprintf(stderr, "cast: no source files found for target '%s'\n", target->name);
             fl_free(&sources);
             sb_free(&dep_includes);
@@ -278,7 +314,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         char outdir[1024];
         snprintf(outdir, sizeof(outdir), "%s/%s", target->out,
                  profile == PROFILE_RELEASE ? "release" : "debug");
-        if (!fs_mkdir_p(outdir)) {
+        if (!fs_mkdir_p(outdir))
+        {
             fprintf(stderr, "cast: failed to create output directory '%s'\n", outdir);
             fl_free(&sources);
             sb_free(&dep_includes);
@@ -298,19 +335,24 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         sb_appendf(&cmd, " -std=%s", cfg->package.std);
         sb_append(&cmd, " -Wall -Wextra");
 
-        for (size_t i = 0; i < target->include_count; i++) {
+        for (size_t i = 0; i < target->include_count; i++)
+        {
             sb_appendf(&cmd, " -I%s", target->include[i]);
         }
-        for (size_t i = 0; i < prof->flag_count; i++) {
+        for (size_t i = 0; i < prof->flag_count; i++)
+        {
             sb_appendf(&cmd, " %s", prof->flags[i]);
         }
         sb_appendf(&cmd, " -DCAST_VERSION=\\\"%s\\\"", cfg->package.version);
         sb_appendf(&cmd, " -DCAST_NAME=\\\"%s\\\"", cfg->package.name);
 
         // link static targets
-        for (size_t i = 0; i < target->link_count; i++) {
-            for (size_t d = 0; d < cfg->target_count; d++) {
-                if (strcmp(cfg->targets[d].name, target->links[i]) == 0) {
+        for (size_t i = 0; i < target->link_count; i++)
+        {
+            for (size_t d = 0; d < cfg->target_count; d++)
+            {
+                if (strcmp(cfg->targets[d].name, target->links[i]) == 0)
+                {
                     sb_appendf(&cmd, " -L%s/%s -l%s", cfg->targets[d].out,
                                profile == PROFILE_RELEASE ? "release" : "debug", target->links[i]);
                     break;
@@ -318,7 +360,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
             }
         }
 
-        for (size_t i = 0; i < sources.count; i++) {
+        for (size_t i = 0; i < sources.count; i++)
+        {
             sb_appendf(&cmd, " %s", sources.paths[i]);
         }
         sb_append(&cmd, dep_includes.data);
@@ -331,17 +374,20 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         sb_init(&base_flags);
         sb_appendf(&base_flags, "-std=%s", cfg->package.std);
         sb_append(&base_flags, " -Wall -Wextra");
-        for (size_t i = 0; i < target->include_count; i++) {
+        for (size_t i = 0; i < target->include_count; i++)
+        {
             sb_appendf(&base_flags, " -I%s", target->include[i]);
         }
-        for (size_t i = 0; i < prof->flag_count; i++) {
+        for (size_t i = 0; i < prof->flag_count; i++)
+        {
             sb_appendf(&base_flags, " %s", prof->flags[i]);
         }
         sb_appendf(&base_flags, " -DCAST_VERSION=\\\"%s\\\"", cfg->package.version);
         sb_appendf(&base_flags, " -DCAST_NAME=\\\"%s\\\"", cfg->package.name);
         sb_append(&base_flags, dep_includes.data);
         bool result = write_compile_commands(cfg, &sources, &base_flags, &cc_entries);
-        if (!result) {
+        if (!result)
+        {
             fprintf(stderr, "cast: failed to write compile_commands.json\n");
             sb_free(&base_flags);
             fl_free(&sources);
@@ -360,7 +406,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
         sb_free(&binpath);
         fl_free(&sources);
 
-        if (ret != 0) {
+        if (ret != 0)
+        {
             fprintf(stderr, COL_RED COL_BOLD "cast:" COL_RESET " build failed (exit %d)\n", ret);
             sb_free(&dep_includes);
             sb_free(&dep_links);
@@ -375,14 +422,17 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
     }
 
     /* write compile_commands.json with all targets */
-    if (cc_entries.len > 0) {
-        if (cc_entries.len >= 2) {
+    if (cc_entries.len > 0)
+    {
+        if (cc_entries.len >= 2)
+        {
             cc_entries.data[cc_entries.len - 2] = '\n';
             cc_entries.len--;
             cc_entries.data[cc_entries.len] = 0;
         }
         FILE *f = fopen("compile_commands.json", "w");
-        if (f) {
+        if (f)
+        {
             fprintf(f, "[\n%s]\n", cc_entries.data);
             fclose(f);
         }
@@ -392,7 +442,8 @@ bool build_run(const CastConfig *cfg, BuildProfile profile, const char *target_n
     sb_free(&dep_includes);
     sb_free(&dep_links);
 
-    if (!any) {
+    if (!any)
+    {
         fprintf(stderr, "cast: no target named '%s'\n", target_name);
         return false;
     }

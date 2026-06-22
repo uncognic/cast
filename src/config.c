@@ -22,37 +22,44 @@
 #include <string.h>
 
 // copy a TOML_STRING to a fixed size buf
-static void str_copy(char *dst, size_t dstsz, toml_datum_t d) {
-    if (d.type == TOML_STRING) {
+static void str_copy(char *dst, size_t dstsz, toml_datum_t d)
+{
+    if (d.type == TOML_STRING)
+    {
         snprintf(dst, dstsz, "%s", d.u.s);
     }
 }
 
 // extract array of strings from a TOML array
-static char **arr_strings(toml_datum_t d, size_t *count_out) {
+static char **arr_strings(toml_datum_t d, size_t *count_out)
+{
     *count_out = 0;
-    if (d.type != TOML_ARRAY || d.u.arr.size <= 0) {
+    if (d.type != TOML_ARRAY || d.u.arr.size <= 0)
+    {
         return nullptr;
     }
 
     int n = d.u.arr.size;
-    char **out = malloc((size_t) n * sizeof(char *));
-    if (!out) {
+    char **out = malloc((size_t)n * sizeof(char *));
+    if (!out)
+    {
         fprintf(stderr, "error: malloc failed\n");
         exit(1);
     }
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
+    {
         toml_datum_t elem = d.u.arr.elem[i];
         out[i] = (elem.type == TOML_STRING) ? strdup(elem.u.s) : strdup("");
     }
 
-    *count_out = (size_t) n;
+    *count_out = (size_t)n;
     return out;
 }
 
 /* the default values for debug and release */
-static void set_default_profiles(CastConfig *cfg) {
+static void set_default_profiles(CastConfig *cfg)
+{
     cfg->debug.flag_count = 2;
     cfg->debug.flags = malloc(2 * sizeof(char *));
     cfg->debug.flags[0] = strdup("-g");
@@ -65,7 +72,8 @@ static void set_default_profiles(CastConfig *cfg) {
 }
 
 /* the default values when no [[target]] is specified */
-static void default_target(CastTarget *t, const char *pkg_name) {
+static void default_target(CastTarget *t, const char *pkg_name)
+{
     snprintf(t->name, sizeof(t->name), "%s", pkg_name[0] ? pkg_name : "app");
     snprintf(t->out, sizeof(t->out), "build");
     t->type = TARGET_EXECUTABLE;
@@ -79,42 +87,53 @@ static void default_target(CastTarget *t, const char *pkg_name) {
     t->include[1] = strdup("extern");
 }
 
-static void parse_profile(toml_datum_t t, CastProfile *p) {
-    if (t.type != TOML_TABLE) {
+static void parse_profile(toml_datum_t t, CastProfile *p)
+{
+    if (t.type != TOML_TABLE)
+    {
         return;
     }
-    for (size_t i = 0; i < p->flag_count; i++) {
+    for (size_t i = 0; i < p->flag_count; i++)
+    {
         free(p->flags[i]);
     }
     free(p->flags);
     p->flags = arr_strings(toml_get(t, "flags"), &p->flag_count);
 }
 
-static void parse_target(toml_datum_t t, CastTarget *target, const char *pkg_name) {
+static void parse_target(toml_datum_t t, CastTarget *target, const char *pkg_name)
+{
     snprintf(target->out, sizeof(target->out), "build");
     target->type = TARGET_EXECUTABLE;
 
     str_copy(target->name, sizeof(target->name), toml_get(t, "name"));
-    if (target->name[0] == '\0') {
+    if (target->name[0] == '\0')
+    {
         snprintf(target->name, sizeof(target->name), "%s", pkg_name[0] ? pkg_name : "app");
     }
     str_copy(target->out, sizeof(target->out), toml_get(t, "out"));
 
     toml_datum_t type = toml_get(t, "type");
-    if (type.type == TOML_STRING && strcmp(type.u.s, "static") == 0) {
+    if (type.type == TOML_STRING && strcmp(type.u.s, "static") == 0)
+    {
         target->type = TARGET_STATIC;
-    } else if (type.type == TOML_STRING && strcmp(type.u.s, "executable") == 0) {
+    }
+    else if (type.type == TOML_STRING && strcmp(type.u.s, "executable") == 0)
+    {
         target->type = TARGET_EXECUTABLE;
-    } else if (type.type == TOML_STRING) {
+    }
+    else if (type.type == TOML_STRING)
+    {
         fprintf(stderr,
                 "cast: warning: target '%s' has unknown type '%s', defaulting to executable\n",
                 target->name, type.u.s);
     }
 
     target->src = arr_strings(toml_get(t, "src"), &target->src_count);
-    
+
     /* default src directories */
-    if (!target->src) {
+    if (!target->src)
+    {
         target->src_count = 2;
         target->src = malloc(2 * sizeof(char *));
         target->src[0] = strdup("src/**/*.c");
@@ -124,7 +143,8 @@ static void parse_target(toml_datum_t t, CastTarget *target, const char *pkg_nam
     target->include = arr_strings(toml_get(t, "include"), &target->include_count);
 
     /* default include directories */
-    if (!target->include) {
+    if (!target->include)
+    {
         target->include_count = 2;
         target->include = malloc(2 * sizeof(char *));
         target->include[0] = strdup("include");
@@ -134,14 +154,16 @@ static void parse_target(toml_datum_t t, CastTarget *target, const char *pkg_nam
     target->links = arr_strings(toml_get(t, "links"), &target->link_count);
 }
 
-static void parse_dep(const char *name, toml_datum_t t, CastDep *dep) {
+static void parse_dep(const char *name, toml_datum_t t, CastDep *dep)
+{
     snprintf(dep->name, sizeof(dep->name), "%s", name);
     str_copy(dep->git, sizeof(dep->git), toml_get(t, "git"));
     str_copy(dep->tag, sizeof(dep->tag), toml_get(t, "tag"));
     str_copy(dep->path, sizeof(dep->path), toml_get(t, "path"));
 }
 
-bool config_load(const char *path, CastConfig *cfg) {
+bool config_load(const char *path, CastConfig *cfg)
+{
     memset(cfg, 0, sizeof(*cfg));
 
     // defaults
@@ -150,11 +172,13 @@ bool config_load(const char *path, CastConfig *cfg) {
     snprintf(cfg->package.compiler, sizeof(cfg->package.compiler), "gcc");
 
     /* when no config file exists, use default config with default target */
-    if (!fs_exists(path)) {
+    if (!fs_exists(path))
+    {
         set_default_profiles(cfg);
         cfg->target_count = 1;
         cfg->targets = calloc(1, sizeof(CastTarget));
-        if (!cfg->targets) {
+        if (!cfg->targets)
+        {
             fputs("cast: out of memory\n", stderr);
             exit(1);
         }
@@ -163,7 +187,8 @@ bool config_load(const char *path, CastConfig *cfg) {
     }
 
     toml_result_t res = toml_parse_file_ex(path);
-    if (!res.ok) {
+    if (!res.ok)
+    {
         fprintf(stderr, "cast: parse error in '%s': %s\n", path, res.errmsg);
         return false;
     }
@@ -174,7 +199,8 @@ bool config_load(const char *path, CastConfig *cfg) {
 
     // [package]
     toml_datum_t pkg = toml_get(root, "package");
-    if (pkg.type == TOML_TABLE) {
+    if (pkg.type == TOML_TABLE)
+    {
         str_copy(cfg->package.name, sizeof(cfg->package.name), toml_get(pkg, "name"));
         str_copy(cfg->package.version, sizeof(cfg->package.version), toml_get(pkg, "version"));
         str_copy(cfg->package.std, sizeof(cfg->package.std), toml_get(pkg, "std"));
@@ -183,38 +209,47 @@ bool config_load(const char *path, CastConfig *cfg) {
 
     // [[target]]
     toml_datum_t targets = toml_get(root, "target");
-    if (targets.type != TOML_ARRAY || targets.u.arr.size <= 0) {
+    if (targets.type != TOML_ARRAY || targets.u.arr.size <= 0)
+    {
         cfg->target_count = 1;
         cfg->targets = calloc(1, sizeof(CastTarget));
-        if (!cfg->targets) {
+        if (!cfg->targets)
+        {
             fputs("cast: out of memory\n", stderr);
             exit(1);
         }
         default_target(&cfg->targets[0], cfg->package.name);
-    } else {
-        cfg->target_count = (size_t) targets.u.arr.size;
+    }
+    else
+    {
+        cfg->target_count = (size_t)targets.u.arr.size;
         cfg->targets = calloc(cfg->target_count, sizeof(CastTarget));
-        if (!cfg->targets) {
+        if (!cfg->targets)
+        {
             fprintf(stderr, "cast: malloc failed\n");
             toml_free(res);
             return false;
         }
 
-        for (size_t i = 0; i < cfg->target_count; i++) {
+        for (size_t i = 0; i < cfg->target_count; i++)
+        {
             parse_target(targets.u.arr.elem[i], &cfg->targets[i], cfg->package.name);
         }
     }
 
     toml_datum_t deps = toml_get(root, "deps");
-    if (deps.type == TOML_TABLE && deps.u.tab.size > 0) {
-        cfg->dep_count = (size_t) deps.u.tab.size;
+    if (deps.type == TOML_TABLE && deps.u.tab.size > 0)
+    {
+        cfg->dep_count = (size_t)deps.u.tab.size;
         cfg->deps = calloc(cfg->dep_count, sizeof(CastDep));
-        if (!cfg->deps) {
+        if (!cfg->deps)
+        {
             fputs("cast: out of memory\n", stderr);
             exit(1);
         }
 
-        for (int i = 0; i < deps.u.tab.size; i++) {
+        for (int i = 0; i < deps.u.tab.size; i++)
+        {
             parse_dep(deps.u.tab.key[i], deps.u.tab.value[i], &cfg->deps[i]);
         }
     }
@@ -225,7 +260,8 @@ bool config_load(const char *path, CastConfig *cfg) {
 
     // [install]
     toml_datum_t install = toml_get(root, "install");
-    if (install.type == TOML_TABLE) {
+    if (install.type == TOML_TABLE)
+    {
         str_copy(cfg->install.prefix, sizeof(cfg->install.prefix), toml_get(install, "prefix"));
     }
 
@@ -233,16 +269,21 @@ bool config_load(const char *path, CastConfig *cfg) {
     return true;
 }
 
-void config_free(CastConfig *cfg) {
-    for (size_t i = 0; i < cfg->target_count; i++) {
+void config_free(CastConfig *cfg)
+{
+    for (size_t i = 0; i < cfg->target_count; i++)
+    {
         CastTarget *t = &cfg->targets[i];
-        for (size_t j = 0; j < t->src_count; j++) {
+        for (size_t j = 0; j < t->src_count; j++)
+        {
             free(t->src[j]);
         }
-        for (size_t j = 0; j < t->include_count; j++) {
+        for (size_t j = 0; j < t->include_count; j++)
+        {
             free(t->include[j]);
         }
-        for (size_t j = 0; j < t->link_count; j++) {
+        for (size_t j = 0; j < t->link_count; j++)
+        {
             free(t->links[j]);
         }
         free(t->src);
@@ -251,10 +292,12 @@ void config_free(CastConfig *cfg) {
     }
     free(cfg->targets);
 
-    for (size_t i = 0; i < cfg->debug.flag_count; i++) {
+    for (size_t i = 0; i < cfg->debug.flag_count; i++)
+    {
         free(cfg->debug.flags[i]);
     }
-    for (size_t i = 0; i < cfg->release.flag_count; i++) {
+    for (size_t i = 0; i < cfg->release.flag_count; i++)
+    {
         free(cfg->release.flags[i]);
     }
     free(cfg->debug.flags);
@@ -262,20 +305,25 @@ void config_free(CastConfig *cfg) {
     free(cfg->deps);
 }
 
-void config_dump(const CastConfig *cfg) {
+void config_dump(const CastConfig *cfg)
+{
     printf("[package]\n  name=%s  version=%s  std=%s  compiler=%s\n", cfg->package.name,
            cfg->package.version, cfg->package.std, cfg->package.compiler);
-    for (size_t i = 0; i < cfg->target_count; i++) {
+    for (size_t i = 0; i < cfg->target_count; i++)
+    {
         const CastTarget *t = &cfg->targets[i];
         printf("[[target]]\n  name=%s  out=%s\n", t->name, t->out);
-        for (size_t j = 0; j < t->src_count; j++) {
+        for (size_t j = 0; j < t->src_count; j++)
+        {
             printf("  src[%zu]=%s\n", j, t->src[j]);
         }
-        for (size_t j = 0; j < t->include_count; j++) {
+        for (size_t j = 0; j < t->include_count; j++)
+        {
             printf("  include[%zu]=%s\n", j, t->include[j]);
         }
     }
-    for (size_t i = 0; i < cfg->dep_count; i++) {
+    for (size_t i = 0; i < cfg->dep_count; i++)
+    {
         printf("[deps.%s]\n  git=%s  tag=%s\n", cfg->deps[i].name, cfg->deps[i].git,
                cfg->deps[i].tag);
     }

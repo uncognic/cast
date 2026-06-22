@@ -22,9 +22,11 @@
 #include <string.h>
 #include <unistd.h>
 
-[[nodiscard]] static bool write_file(const char *path, const char *content) {
+[[nodiscard]] static bool write_file(const char *path, const char *content)
+{
     FILE *f = fopen(path, "w");
-    if (!f) {
+    if (!f)
+    {
         fprintf(stderr, "cast: cannot write '%s': %s\n", path, strerror(errno));
         return false;
     }
@@ -33,18 +35,22 @@
     return true;
 }
 
-bool init_run(const char *name) {
+bool init_run(const char *name)
+{
     StrBuf path = {0};
     sb_init(&path);
 
     // if name given, enter it and create dir if not exists
-    if (name) {
-        if (fs_exists(name)) {
+    if (name)
+    {
+        if (fs_exists(name))
+        {
             fprintf(stderr, "cast: '%s' already exists\n", name);
             sb_free(&path);
             return false;
         }
-        if (!fs_mkdir_p(name)) {
+        if (!fs_mkdir_p(name))
+        {
             sb_free(&path);
             return false;
         }
@@ -56,14 +62,16 @@ bool init_run(const char *name) {
     // create src and include
     sb_clear(&path);
     path_join(&path, base, "src");
-    if (!fs_mkdir_p(path.data)) {
+    if (!fs_mkdir_p(path.data))
+    {
         sb_free(&path);
         return false;
     }
 
     sb_clear(&path);
     path_join(&path, base, "include");
-    if (!fs_mkdir_p(path.data)) {
+    if (!fs_mkdir_p(path.data))
+    {
         sb_free(&path);
         return false;
     }
@@ -71,10 +79,14 @@ bool init_run(const char *name) {
     // cast.toml
     char cwdbuf[1024];
     const char *project_name;
-    if (name) {
+    if (name)
+    {
         project_name = name;
-    } else {
-        if (!getcwd(cwdbuf, sizeof(cwdbuf))) {
+    }
+    else
+    {
+        if (!getcwd(cwdbuf, sizeof(cwdbuf)))
+        {
             perror("cast: getcwd");
             sb_free(&path);
             return false;
@@ -91,7 +103,8 @@ bool init_run(const char *name) {
 
     sb_clear(&path);
     path_join(&path, base, "cast.toml");
-    if (!write_file(path.data, toml)) {
+    if (!write_file(path.data, toml))
+    {
         sb_free(&path);
         return false;
     }
@@ -108,7 +121,8 @@ bool init_run(const char *name) {
 
     sb_clear(&path);
     path_join(&path, base, "src/main.c");
-    if (!write_file(path.data, main_c)) {
+    if (!write_file(path.data, main_c))
+    {
         sb_free(&path);
         return false;
     }
@@ -116,7 +130,8 @@ bool init_run(const char *name) {
     // .gitignore
     sb_clear(&path);
     path_join(&path, base, ".gitignore");
-    if (!write_file(path.data, "build/\ncompile_commands.json\n")) {
+    if (!write_file(path.data, "build/\ncompile_commands.json\n"))
+    {
         sb_free(&path);
         return false;
     }

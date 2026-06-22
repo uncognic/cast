@@ -26,14 +26,17 @@
 
 // FileList
 
-void fl_init(FileList *fl) {
+void fl_init(FileList *fl)
+{
     fl->paths = malloc(FL_INIT_CAP * sizeof(char *));
     fl->count = 0;
     fl->cap = FL_INIT_CAP;
 }
 
-void fl_free(FileList *fl) {
-    for (size_t i = 0; i < fl->count; i++) {
+void fl_free(FileList *fl)
+{
+    for (size_t i = 0; i < fl->count; i++)
+    {
         free(fl->paths[i]);
     }
 
@@ -43,13 +46,16 @@ void fl_free(FileList *fl) {
     fl->cap = 0;
 }
 
-void fl_push(FileList *fl, const char *path) {
+void fl_push(FileList *fl, const char *path)
+{
 
     // if there is not enough space
-    if (fl->count >= fl->cap) {
+    if (fl->count >= fl->cap)
+    {
         fl->cap *= 2;
         fl->paths = realloc(fl->paths, fl->cap * sizeof(char *));
-        if (!fl->paths) {
+        if (!fl->paths)
+        {
             fprintf(stderr, "cast: out of memory\n");
             exit(1);
         }
@@ -58,17 +64,21 @@ void fl_push(FileList *fl, const char *path) {
     fl->paths[fl->count++] = strdup(path);
 }
 
-void path_join(StrBuf *sb, const char *a, const char *b) {
+void path_join(StrBuf *sb, const char *a, const char *b)
+{
     sb_append(sb, a);
-    if (sb->len > 0 && sb->data[sb->len - 1] != '/') {
+    if (sb->len > 0 && sb->data[sb->len - 1] != '/')
+    {
         sb_appendc(sb, '/');
     }
     sb_append(sb, b);
 }
 
-bool fs_walk(const char *dir, const char *ext, FileList *out) {
+bool fs_walk(const char *dir, const char *ext, FileList *out)
+{
     DIR *d = opendir(dir);
-    if (!d) {
+    if (!d)
+    {
         fprintf(stderr, "cannot open dir '%s': %s\n", dir, strerror(errno));
         return false;
     }
@@ -77,9 +87,11 @@ bool fs_walk(const char *dir, const char *ext, FileList *out) {
     sb_init(&path);
 
     struct dirent *entry;
-    while ((entry = readdir(d)) != nullptr) {
+    while ((entry = readdir(d)) != nullptr)
+    {
         // skip hidden files and dirs
-        if (entry->d_name[0] == '.') {
+        if (entry->d_name[0] == '.')
+        {
             continue;
         }
 
@@ -88,21 +100,27 @@ bool fs_walk(const char *dir, const char *ext, FileList *out) {
 
         struct stat st;
         // if stat fails, skip this entry
-        if (stat(path.data, &st) != 0) {
+        if (stat(path.data, &st) != 0)
+        {
             continue;
         }
 
         // if dir then recurse
-        if (S_ISDIR(st.st_mode)) {
+        if (S_ISDIR(st.st_mode))
+        {
             // if walk fails, close dir and return false
-            if (!fs_walk(path.data, ext, out)) {
+            if (!fs_walk(path.data, ext, out))
+            {
                 closedir(d);
                 sb_free(&path);
                 return false;
             }
             // if regular file and ext matches, add to list
-        } else if (S_ISREG(st.st_mode)) {
-            if (strcmp(path_ext(path.data), ext) == 0) {
+        }
+        else if (S_ISREG(st.st_mode))
+        {
+            if (strcmp(path_ext(path.data), ext) == 0)
+            {
                 fl_push(out, path.data);
             }
         }
@@ -113,29 +131,35 @@ bool fs_walk(const char *dir, const char *ext, FileList *out) {
     return true;
 }
 
-bool fs_exists(const char *path) {
+bool fs_exists(const char *path)
+{
     struct stat st;
     return stat(path, &st) == 0;
 }
 
-bool fs_mkdir_p(const char *path) {
+bool fs_mkdir_p(const char *path)
+{
     char tmp[4096];
     snprintf(tmp, sizeof(tmp), "%s", path);
 
     // create parent dirs one by one
-    for (char *p = tmp + 1; *p; p++) {
-        if (*p != '/') {
+    for (char *p = tmp + 1; *p; p++)
+    {
+        if (*p != '/')
+        {
             continue;
         }
         *p = '\0';
-        if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+        if (mkdir(tmp, 0755) != 0 && errno != EEXIST)
+        {
             fprintf(stderr, "cast: mkdir '%s': %s\n", tmp, strerror(errno));
             return false;
         }
         *p = '/';
     }
 
-    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+    if (mkdir(tmp, 0755) != 0 && errno != EEXIST)
+    {
         fprintf(stderr, "cast: mkdir '%s': %s\n", tmp, strerror(errno));
         return false;
     }
@@ -143,12 +167,14 @@ bool fs_mkdir_p(const char *path) {
     return true;
 }
 
-const char *path_basename(const char *path) {
+const char *path_basename(const char *path)
+{
     const char *s = strrchr(path, '/');
     return s ? s + 1 : path;
 }
 
-const char *path_ext(const char *path) {
+const char *path_ext(const char *path)
+{
     const char *base = path_basename(path);
     const char *dot = strrchr(base, '.');
     return dot ? dot : "";

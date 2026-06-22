@@ -18,23 +18,30 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-typedef enum { TARGET_EXECUTABLE, TARGET_STATIC } TargetType;
+typedef enum
+{
+    TARGET_EXECUTABLE,
+    TARGET_STATIC
+} TargetType;
 
-typedef struct {
+typedef struct
+{
     char name[128];
     char git[512];
     char tag[64];
     char path[512]; // local path alternative to git
 } CastDep;
 
-typedef struct {
+typedef struct
+{
     char name[128];
     char version[32];
     char std[16];
     char compiler[64];
 } CastPackage;
 
-typedef struct {
+typedef struct
+{
     TargetType type;
     char name[128];
     char **src; // array of source file patterns
@@ -46,16 +53,19 @@ typedef struct {
     char out[128]; // output directory
 } CastTarget;
 
-typedef struct {
+typedef struct
+{
     char **flags;
     size_t flag_count;
 } CastProfile;
 
-typedef struct {
+typedef struct
+{
     char prefix[256]; // default /usr/local
 } CastInstall;
 
-typedef struct {
+typedef struct
+{
     CastPackage package;
     CastTarget *targets;
     size_t target_count;

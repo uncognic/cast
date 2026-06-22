@@ -18,7 +18,8 @@
 #include "config.h"
 #include <stdbool.h>
 
-typedef enum {
+typedef enum
+{
     PROFILE_DEBUG,
     PROFILE_RELEASE,
 } BuildProfile;
